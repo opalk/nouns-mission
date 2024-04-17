@@ -1,49 +1,69 @@
-const { db } = require('../db/dbconfig.js');
+// controllers/controller.js
+
+import db from '../db/dbconfig.js';
+import { validateRequestBody, validateNounLength, validateNounExistence } from '../validation.js';
 
 async function getNouns(req, res) {
+  const page = parseInt(req.query.page) || 1; // Default to page 1 if not specified
+  const limitPerPage = process.env.PAGE_LIMIT ; 
+
   try {
-    const nouns = await db('nouns').select('id', 'name');
-    res.json(nouns);
-  } catch (error) {
-    console.error('Error fetching nouns:', error);
-    res.status(500).json({ message: 'Error retrieving nouns' });
+    const total = await db('nouns').count('id as total').first().total;
+    const offset = (page - 1) * limitPerPage;
+
+    const nouns = await db('nouns')
+      .select('id', 'name')
+      .limit(limitPerPage)
+      .offset(offset);
+      console.log(`Fetched nouns (page: ${page}, limit per page: ${limitPerPage}):`, nouns); // Log fetched nouns with page and limit per page
+      res.json({ nouns, total });
+    } catch (error) {
+      console.error('Error fetching nouns:', error);
+      res.status(500).json({ message: 'Error retrieving nouns' });
+    }
   }
-}
 
 async function updateNouns(req, res) {
-  const changes = req.body.changes;
-  if (!changes || !Array.isArray(changes)) {
-    return res.status(400).json({ error: 'Invalid request body' });
-  }
-
   try {
-    let origin = await db('nouns').select();
-    let maxId = origin.reduce((max, noun) => Math.max(max, noun.id), 0);
+    validateRequestBody(req, res);
+    validateNounLength(req, res);
+    const changes = req.body.changes;
 
-    for (const change of changes) {
-      if (change.startsWith('-')) {
-        const indexToRemove = origin.findIndex(obj => obj.name === change.substring(1));
-        if (indexToRemove !== -1) {
-          origin.splice(indexToRemove, 1);
+    const pageSize = 100;
+    const pageCount = Math.ceil(changes.length / pageSize);
+    const errors = [];
+
+    for (let page = 0; page < pageCount; page++) {
+      const start = page * pageSize;
+      const end = Math.min((page + 1) * pageSize, changes.length);
+      const pageChanges = changes.slice(start, end);
+
+      console.log(`Processing page ${page + 1} of ${pageCount} (changes: ${pageChanges.length})`); // Log page processing info
+
+      const existingNouns = await db('nouns').select('name');
+
+      req.existingNouns = existingNouns; // Pass existing nouns to the request object
+
+      validateNounExistence(req, res);
+
+      await Promise.all(pageChanges.map(async (change) => {
+        if (change.startsWith('-')) {
+          const nounToRemove = change.substring(1);
+          await db('nouns').where('name', nounToRemove).del();
+        } else {
+          const newNoun = change.trim();
+          await db('nouns').insert({ name: newNoun });
+          console.log(`Inserted new noun: ${newNoun}`); // Log successful new noun insertion
         }
-      } else {
-        const newNoun = change.trim();
-        if (newNoun.length > 30) {
-          return res.status(400).json({ error: `Noun "${newNoun}" exceeds maximum length of 30 characters` });
-        }
-        if (origin.some(obj => obj.name === newNoun)) {
-          return res.status(400).json({ error: `Noun "${newNoun}" already exists` });
-        }
-        origin.push({ id: ++maxId, name: newNoun });
-      }
+      }));
     }
 
-  
-    res.json({ message: 'Nouns updated successfully'});
+    console.log('Nouns updated successfully'); // Log successful update
+    res.json({ message: 'Nouns updated successfully' });
   } catch (error) {
     console.error('Error updating nouns:', error);
     res.status(500).json({ error: 'Failed to update nouns in database' });
   }
 }
 
-module.exports = { getNouns, updateNouns };
+export { getNouns, updateNouns };

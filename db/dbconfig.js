@@ -1,5 +1,5 @@
-const knex = require('knex');
-const dotenv = require('dotenv');
+import knex from 'knex';
+import dotenv from 'dotenv';
 dotenv.config();
 
 const db = knex({
@@ -13,4 +13,12 @@ const db = knex({
   },
 });
 
-module.exports = { db };
+//checking connection
+db.raw('SELECT 1')
+  .then(() => console.log('Connected to MySQL database'))
+  .catch((error) => {
+    console.error('Error connecting to MySQL database:', error);
+    process.exit(1); // Exit process on connection failure
+  });
+
+export default db;
