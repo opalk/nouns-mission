@@ -18,12 +18,12 @@ async function validateNounLength(noun) {
   return null;
 }
 
-async function validateNounExistence(noun) {
-  const existingNouns = await db('nouns').select('name');
-  if (existingNouns.some(existingNoun => existingNoun.name.toLowerCase() === noun.toLowerCase())) {
-    return `Noun "${noun}" already exists`;
-  }
-  return null;
-}
+// async function validateNounExistence(noun) {
+//   const existingNouns = await db('nouns').select('name');
+//   if (existingNouns.some(existingNoun => existingNoun.name.toLowerCase() === noun.toLowerCase())) {
+//     return `Noun "${noun}" already exists`;
+//   }
+//   return null;
+// }
 
-export { validateRequestBody, validateNounLength, validateNounExistence };
+export { validateRequestBody, validateNounLength };
