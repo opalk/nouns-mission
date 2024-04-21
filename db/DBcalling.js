@@ -23,7 +23,21 @@ async function getNounsFromDB(page, limit) {
     return { nouns, total: totalCount };
   }
   
+  /**
+ * Get paginated list of nouns from the database.
+ * 
+ * @param {number} page - Page number
+ * @param {number} limit - Number of items per page
+ * @returns {Promise<Array>} - Array of nouns for the page
+ */
+async function getNounsDB(page, limit) {
+    const offset = (page - 1) * limit;
   
+    return db('nouns')
+      .select('id', 'name')
+      .limit(limit)
+      .offset(offset);
+  }
 
 /**
  * Insert a new noun into the database.
@@ -45,4 +59,4 @@ async function removeNounFromDB(noun) {
   return db('nouns').where('name', noun).del();
 }
 
-export { getNounsFromDB, insertNounIntoDB, removeNounFromDB };
+export { getNounsFromDB, getNounsDB, insertNounIntoDB, removeNounFromDB };

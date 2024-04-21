@@ -1,4 +1,4 @@
-import { getNounsFromDB, insertNounIntoDB, removeNounFromDB } from '../db/DBcalling.js';
+import { getNounsFromDB,getNounsDB, insertNounIntoDB, removeNounFromDB } from '../db/DBcalling.js';
 import { validateRequestBody, validateNounLength } from '../validations/validation.js';
 
 const PAGE_LIMIT = parseInt(process.env.PAGE_LIMIT) || 100;
@@ -58,14 +58,14 @@ async function updateNouns(req, res) {
 
   try {
     const changes = Array.isArray(req.body) ? req.body : [req.body];
-    const allNouns = await getNounsFromDB(1, MAX_ARRAY_LENGTH);
+    const allNouns = await getNounsDB(1, MAX_ARRAY_LENGTH);
     // Checking if the array length is bigger than the MAX_ARRAY_LENGTH
     const usePagination = allNouns.length > MAX_ARRAY_LENGTH;
 
     let nouns;
     if (usePagination) {
       const page = parseInt(req.query.page) || 1;
-      nouns = await getNounsFromDB(page, PAGE_LIMIT);
+      nouns = await getNounsDB(page, PAGE_LIMIT);
     } else {
       nouns = allNouns;
     }
