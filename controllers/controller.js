@@ -1,8 +1,9 @@
-import { getNounsFromDB,getNounsDB, insertNounIntoDB, removeNounFromDB } from '../db/DBcalling.js';
+import { getNounsFromDB, getNounsDB, insertNounIntoDB, removeNounFromDB } from '../db/DBcalling.js';
 import { validateRequestBody, validateNounLength } from '../validations/validation.js';
 
+// Default values for pagination and array length
 const PAGE_LIMIT = parseInt(process.env.PAGE_LIMIT) || 100;
-const MAX_ARRAY_LENGTH = parseInt(process.env.MAX_ARRAY_LENGTH) || 2000;
+const MAX_ARRAY_LENGTH = parseInt(process.env.MAX_ARRAY_LENGTH) || 5000;
 
 /**
  * Get paginated list of nouns.
@@ -12,12 +13,12 @@ const MAX_ARRAY_LENGTH = parseInt(process.env.MAX_ARRAY_LENGTH) || 2000;
  * @param {Object} res - Express response object
  */
 async function getNouns(req, res) {
-  const page = parseInt(req.query.page) || 1; // Default to page 1 if not provided
+  // Parse page number from query parameter, default to 1 if not provided
+  const page = parseInt(req.query.page) || 1;
 
   try {
-    // Fetch total count of nouns
+    // Fetch total count of nouns and paginated list of nouns
     const { nouns, total } = await getNounsFromDB(page, MAX_ARRAY_LENGTH);
-    console.log(total);
 
     if (total > MAX_ARRAY_LENGTH) {
       // Calculate total pages based on PAGE_LIMIT
@@ -28,11 +29,10 @@ async function getNouns(req, res) {
         return res.status(400).json({ message: `Invalid page number. Must be between 1 and ${pageCount}` });
       }
 
-      console.log(`Fetched nouns (page: ${page}, page size: ${PAGE_LIMIT}):`, nouns);
+      // Return paginated list of nouns
       res.json({ nouns, total, pageCount });
     } else {
       // Fetch all nouns if total is less than or equal to limit
-      console.log(`Fetched all nouns (total: ${nouns.length})`);
       res.json({ nouns });
     }
   } catch (error) {
@@ -40,7 +40,6 @@ async function getNouns(req, res) {
     res.status(500).json({ message: 'Error retrieving nouns' });
   }
 }
-
 
 /**
  * Update nouns based on changes provided in the request body.
@@ -51,27 +50,33 @@ async function getNouns(req, res) {
  * @param {Object} res - Express response object
  */
 async function updateNouns(req, res) {
-  // Checking validate body req
+  // Checking request body validation
   if (!validateRequestBody(req, res)) {
     return res.status(400).json({ message: 'Invalid request body' });
   }
 
   try {
+    // Ensure changes is an array, even if only one item is provided
     const changes = Array.isArray(req.body) ? req.body : [req.body];
-    const allNouns = await getNounsDB(1, MAX_ARRAY_LENGTH);
-    // Checking if the array length is bigger than the MAX_ARRAY_LENGTH
-    const usePagination = allNouns.length > MAX_ARRAY_LENGTH;
 
+    // Fetch all nouns or paginated nouns based on array length
+    const allNouns = await getNounsDB(1, MAX_ARRAY_LENGTH);
+    const usePagination = allNouns.length > MAX_ARRAY_LENGTH;
     let nouns;
+
     if (usePagination) {
+      // Use pagination if necessary
       const page = parseInt(req.query.page) || 1;
       nouns = await getNounsDB(page, PAGE_LIMIT);
     } else {
+      // Use all nouns if array length is within limit
       nouns = allNouns;
     }
 
+    // Create a set of existing noun names for efficient lookup
     const existingNouns = new Set(nouns.map(noun => noun.name));
 
+    // Calculate page count if pagination is used
     const pageCount = usePagination ? Math.ceil(allNouns.length / PAGE_LIMIT) : 1;
     const errors = [];
 
@@ -93,15 +98,17 @@ async function updateNouns(req, res) {
           errors.push(lengthError);
         } else {
           // Check if the change already exists
-          const existingNoun = nouns.find(noun => noun.name.toLowerCase() === trimmedChange.toLowerCase());
+          const existingNoun = existingNouns.has(trimmedChange.toLowerCase());
           if (existingNoun) {
             errors.push(`Noun '${trimmedChange}' already exists`);
           } else {
             // Perform the appropriate action based on the change
             if (trimmedChange.startsWith('-')) {
+              // If change starts with '-', remove the noun
               const nounToRemove = trimmedChange.substring(1);
               await removeNounFromDB(nounToRemove);
             } else {
+              // Otherwise, insert the new noun
               await insertNounIntoDB(trimmedChange);
               console.log(`Inserted new noun: ${trimmedChange}`);
             }
@@ -115,6 +122,7 @@ async function updateNouns(req, res) {
       return res.status(400).json({ errors });
     }
 
+    // Respond with success message
     console.log('Nouns updated successfully');
     res.json({ message: 'Nouns updated successfully' });
   } catch (error) {
@@ -123,4 +131,5 @@ async function updateNouns(req, res) {
   }
 }
 
+// Export the functions for use in routes
 export { getNouns, updateNouns };

@@ -27,21 +27,21 @@ async function validateNounLength(noun) {
   return null;
 }
 
-/**
- * Validate if a noun already exists in the database (case insensitive).
- * @param {string} noun - The noun to check
- * @returns {Promise<string|null>} - An error message if the noun already exists, otherwise null
- */
-async function validateNounExistence(noun) {
-  const existingNoun = await db('nouns')
-    .whereRaw('LOWER(name) = ?', [noun.toLowerCase()])
-    .first();
+// /**
+//  * Validate if a noun already exists in the database (case insensitive).
+//  * @param {string} noun - The noun to check
+//  * @returns {Promise<string|null>} - An error message if the noun already exists, otherwise null
+//  */
+// async function validateNounExistence(noun) {
+//   const existingNoun = await db('nouns')
+//     .whereRaw('LOWER(name) = ?', [noun.toLowerCase()])
+//     .first();
 
-  if (existingNoun) {
-    return `Noun '${noun}' already exists (case insensitive)`;
-  }
+//   if (existingNoun) {
+//     return `Noun '${noun}' already exists (case insensitive)`;
+//   }
 
-  return null;
-}
+//   return null;
+// }
 
 export { validateRequestBody, validateNounLength, validateNounExistence };

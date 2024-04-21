@@ -1,7 +1,7 @@
 import db from './dbconfig.js';
 
 /**
- * Get paginated list of nouns from the database.
+ * Get paginated list of nouns from the database with total count.
  * 
  * @param {number} page - Page number
  * @param {number} limit - Number of items per page
@@ -23,8 +23,8 @@ async function getNounsFromDB(page, limit) {
     return { nouns, total: totalCount };
   }
   
-  /**
- * Get paginated list of nouns from the database.
+/**
+ * Get paginated list of nouns from the database ,for updatenouns to work (nouns now get as array)
  * 
  * @param {number} page - Page number
  * @param {number} limit - Number of items per page
@@ -33,6 +33,7 @@ async function getNounsFromDB(page, limit) {
 async function getNounsDB(page, limit) {
     const offset = (page - 1) * limit;
   
+    // Fetch paginated data without total count
     return db('nouns')
       .select('id', 'name')
       .limit(limit)
@@ -59,4 +60,5 @@ async function removeNounFromDB(noun) {
   return db('nouns').where('name', noun).del();
 }
 
+// Export the functions for use in other files
 export { getNounsFromDB, getNounsDB, insertNounIntoDB, removeNounFromDB };
