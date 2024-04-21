@@ -1,38 +1,48 @@
 import db from './dbconfig.js';
 
+/**
+ * Get paginated list of nouns from the database.
+ * 
+ * @param {number} page - Page number
+ * @param {number} limit - Number of items per page
+ * @returns {Promise<{ nouns: Array, total: number }>} - Array of nouns for the page and total count
+ */
 async function getNounsFromDB(page, limit) {
-  const offset = (page - 1) * limit;
-  return await db('nouns')
-    .select('id', 'name')
-    .limit(limit)
-    .offset(offset);
-}
-
-async function updateNounsInDB(changes) {
-    try {
-      await Promise.all(changes.map(async (change) => {
-        if (change.startsWith('-')) {
-          const nounToRemove = change.substring(1);
-          await db('nouns').where('name', nounToRemove).del();
-        } else {
-          const newNoun = change.trim();
-          await db('nouns').insert({ name: newNoun });
-        }
-      }));
-      console.log('Nouns updated successfully');
-      return { success: true, message: 'Nouns updated successfully' };
-    } catch (error) {
-      console.error('Error updating nouns:', error);
-      return { success: false, error: 'Failed to update nouns in database' };
-    }
+    const offset = (page - 1) * limit;
+  
+    // Fetch total count
+    const totalCountResult = await db('nouns').count('id as totalCount').first();
+    const totalCount = parseInt(totalCountResult.totalCount);
+  
+    // Fetch paginated data
+    const nouns = await db('nouns')
+      .select('id', 'name')
+      .limit(limit)
+      .offset(offset);
+  
+    return { nouns, total: totalCount };
   }
+  
+  
 
-async function fetchNounsFromDB(page, pageSize) {
-  const offset = page * pageSize;
-  return await db('nouns')
-    .select('name')
-    .limit(pageSize)
-    .offset(offset);
+/**
+ * Insert a new noun into the database.
+ * 
+ * @param {string} noun - The noun to insert
+ * @returns {Promise<void>} - Promise indicating success or failure
+ */
+async function insertNounIntoDB(noun) {
+  return db('nouns').insert({ name: noun });
 }
 
-export { getNounsFromDB, updateNounsInDB, fetchNounsFromDB };
+/**
+ * Remove a noun from the database.
+ * 
+ * @param {string} noun - The noun to remove
+ * @returns {Promise<void>} - Promise indicating success or failure
+ */
+async function removeNounFromDB(noun) {
+  return db('nouns').where('name', noun).del();
+}
+
+export { getNounsFromDB, insertNounIntoDB, removeNounFromDB };
