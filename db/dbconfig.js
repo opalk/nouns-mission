@@ -1,5 +1,10 @@
 import knex from 'knex';
 import dotenv from 'dotenv';
+import defaults from 'dotenv-defaults';
+
+// Load .env.defaults
+defaults.config();
+
 dotenv.config();
 
 const db = knex({

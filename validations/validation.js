@@ -44,4 +44,4 @@ async function validateNounLength(noun) {
 //   return null;
 // }
 
-export { validateRequestBody, validateNounLength, validateNounExistence };
+export { validateRequestBody, validateNounLength};

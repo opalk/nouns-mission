@@ -3,7 +3,7 @@ import { validateRequestBody, validateNounLength } from '../validations/validati
 
 // Default values for pagination and array length
 const PAGE_LIMIT = parseInt(process.env.PAGE_LIMIT) || 100;
-const MAX_ARRAY_LENGTH = parseInt(process.env.MAX_ARRAY_LENGTH) || 5000;
+const MAX_ARRAY_LENGTH = parseInt(process.env.MAX_ARRAY_LENGTH) || 2000;
 
 /**
  * Get paginated list of nouns.
@@ -19,6 +19,7 @@ async function getNouns(req, res) {
   try {
     // Fetch total count of nouns and paginated list of nouns
     const { nouns, total } = await getNounsFromDB(page, MAX_ARRAY_LENGTH);
+    console.log(total);
 
     if (total > MAX_ARRAY_LENGTH) {
       // Calculate total pages based on PAGE_LIMIT
@@ -59,37 +60,22 @@ async function updateNouns(req, res) {
     // Ensure changes is an array, even if only one item is provided
     const changes = Array.isArray(req.body) ? req.body : [req.body];
 
-    // Fetch all nouns or paginated nouns based on array length
-    const allNouns = await getNounsDB(1, MAX_ARRAY_LENGTH);
-    const usePagination = allNouns.length > MAX_ARRAY_LENGTH;
-    let nouns;
-
-    if (usePagination) {
-      // Use pagination if necessary
-      const page = parseInt(req.query.page) || 1;
-      nouns = await getNounsDB(page, PAGE_LIMIT);
-    } else {
-      // Use all nouns if array length is within limit
-      nouns = allNouns;
-    }
+    // Fetch all nouns
+    const allNouns = await getNounsDB(1, Infinity); // Fetch all without pagination
 
     // Create a set of existing noun names for efficient lookup
-    const existingNouns = new Set(nouns.map(noun => noun.name));
+    const existingNouns = new Set(allNouns.map(noun => noun.name.toLowerCase()));
 
-    // Calculate page count if pagination is used
-    const pageCount = usePagination ? Math.ceil(allNouns.length / PAGE_LIMIT) : 1;
-    const errors = [];
+    let start = 0;
+    let end = Math.min(PAGE_LIMIT, allNouns.length);
 
-    // Loop through each page of changes
-    for (let page = 0; page < pageCount; page++) {
-      const start = usePagination ? page * PAGE_LIMIT : 0;
-      const end = usePagination ? Math.min((page + 1) * PAGE_LIMIT, allNouns.length) : allNouns.length;
-      const pageChanges = changes.slice(start, end);
+    const processedStrings = new Set(); // Keep track of processed strings across all chunks
+    let errors = [];
 
-      console.log(`Processing page ${page + 1} of ${pageCount} (changes: ${pageChanges.length})`);
+    while (start < allNouns.length) {
+      const pageNouns = allNouns.slice(start, end);
 
-      // Process each change in the current page
-      for (const change of pageChanges) {
+      for (const change of changes) {
         const trimmedChange = change.trim();
 
         // Validate the length of the change
@@ -101,6 +87,8 @@ async function updateNouns(req, res) {
           const existingNoun = existingNouns.has(trimmedChange.toLowerCase());
           if (existingNoun) {
             errors.push(`Noun '${trimmedChange}' already exists`);
+          } else if (processedStrings.has(trimmedChange.toLowerCase())) {
+            errors.push(`Noun '${trimmedChange}' already processed in this batch`);
           } else {
             // Perform the appropriate action based on the change
             if (trimmedChange.startsWith('-')) {
@@ -112,12 +100,21 @@ async function updateNouns(req, res) {
               await insertNounIntoDB(trimmedChange);
               console.log(`Inserted new noun: ${trimmedChange}`);
             }
+
+            // Add the processed string to the set
+            processedStrings.add(trimmedChange.toLowerCase());
           }
         }
       }
+
+      // Moving to the next chunk
+      start = end;
+      end = Math.min(end + PAGE_LIMIT, allNouns.length);
     }
 
-    // If there are errors, return them
+    // Filter out duplicate errors
+    errors = errors.filter((error, index) => errors.indexOf(error) === index);
+
     if (errors.length > 0) {
       return res.status(400).json({ errors });
     }
@@ -130,6 +127,9 @@ async function updateNouns(req, res) {
     res.status(500).json({ message: 'Error updating nouns' });
   }
 }
+
+
+
 
 // Export the functions for use in routes
 export { getNouns, updateNouns };
